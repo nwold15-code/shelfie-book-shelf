@@ -60,7 +60,14 @@ export default function LibraryPage() {
             author: result.author,
             coverUrl: result.coverUrl,
             genres: result.genres,
+            series: result.series,
+            seriesIndex: result.seriesIndex,
           });
+          if (!result.series) {
+            setLookupError(
+              "Added the book details — couldn't detect a series automatically, so add it manually if this is part of one."
+            );
+          }
         }
       } catch {
         setFormInitial({ isbn });
