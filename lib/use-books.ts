@@ -46,9 +46,29 @@ export function useBooks() {
     );
   }, []);
 
+  const updateManyBooks = useCallback((ids: string[], patch: Partial<Book>) => {
+    const idSet = new Set(ids);
+    setBooks((prev) =>
+      prev.map((b) => (idSet.has(b.id) ? { ...b, ...patch } : b))
+    );
+  }, []);
+
   const removeBook = useCallback((id: string) => {
     setBooks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  return { books, hydrated, addBook, updateBook, removeBook };
+  const removeManyBooks = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setBooks((prev) => prev.filter((b) => !idSet.has(b.id)));
+  }, []);
+
+  return {
+    books,
+    hydrated,
+    addBook,
+    updateBook,
+    updateManyBooks,
+    removeBook,
+    removeManyBooks,
+  };
 }

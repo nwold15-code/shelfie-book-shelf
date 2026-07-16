@@ -1,3 +1,12 @@
+export type Collection = "owned" | "wishlist" | "lent" | "donate";
+
+export const COLLECTION_LABELS: Record<Collection, string> = {
+  owned: "Owned",
+  wishlist: "Wishlist",
+  lent: "Lent Out",
+  donate: "To Donate",
+};
+
 export interface Book {
   id: string;
   isbn: string;
@@ -9,6 +18,7 @@ export interface Book {
   read: boolean;
   rating: number; // 0-5
   genres: string[];
+  collection: Collection;
   addedAt: string;
 }
 
@@ -20,4 +30,5 @@ export interface RecommendedBook {
   reason: string;
   workUrl: string;
   buyUrl: string;
+  readable: boolean;
 }

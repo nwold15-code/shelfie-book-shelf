@@ -102,6 +102,7 @@ export interface AuthorWork {
   title: string;
   coverUrl: string | null;
   workUrl: string;
+  readable: boolean;
 }
 
 export async function searchWorksByAuthor(
@@ -111,7 +112,7 @@ export async function searchWorksByAuthor(
   const res = await fetch(
     `https://openlibrary.org/search.json?author=${encodeURIComponent(
       author
-    )}&sort=rating&limit=${limit}&fields=key,title,cover_i,author_name`
+    )}&sort=rating&limit=${limit}&fields=key,title,cover_i,author_name,ebook_access`
   );
   if (!res.ok) return [];
   const data = await res.json();
@@ -119,6 +120,7 @@ export async function searchWorksByAuthor(
   return docs.map((doc) => {
     const key = String(doc.key ?? "");
     const coverId = doc.cover_i as number | undefined;
+    const ebookAccess = doc.ebook_access as string | undefined;
     return {
       key,
       title: String(doc.title ?? "Untitled"),
@@ -126,6 +128,49 @@ export async function searchWorksByAuthor(
         ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
         : null,
       workUrl: `https://openlibrary.org${key}`,
+      readable: ebookAccess === "public" || ebookAccess === "borrowable",
     };
   });
+}
+
+function slugifySubject(subject: string): string {
+  return subject
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export async function searchWorksByGenre(
+  genre: string,
+  limit = 6
+): Promise<AuthorWork[]> {
+  const slug = slugifySubject(genre);
+  if (!slug) return [];
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/subjects/${slug}.json?limit=${limit}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const works: Array<Record<string, unknown>> = data.works ?? [];
+    return works.map((w) => {
+      const key = String(w.key ?? "");
+      const coverId = w.cover_id as number | undefined;
+      const authors = w.authors as Array<{ name?: string }> | undefined;
+      const ia = w.ia as string[] | undefined;
+      return {
+        key,
+        title: String(w.title ?? "Untitled"),
+        coverUrl: coverId
+          ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
+          : null,
+        workUrl: `https://openlibrary.org${key}`,
+        readable: Array.isArray(ia) && ia.length > 0,
+        author: authors?.[0]?.name ?? "",
+      } as AuthorWork & { author: string };
+    });
+  } catch {
+    return [];
+  }
 }
