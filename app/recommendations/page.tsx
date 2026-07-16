@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useBooks } from "@/lib/use-books";
-import { searchWorksByAuthor } from "@/lib/open-library";
+import { searchWorksByAuthor, searchWorksByGenre } from "@/lib/open-library";
 import { RecommendedBook } from "@/types";
 import { RecommendationCard } from "@/components/recommendation-card";
 import { Loader2, Sparkles, BookOpen, AlertCircle } from "lucide-react";
@@ -32,9 +32,23 @@ export default function RecommendationsPage() {
       .map(([author]) => author);
   }, [books]);
 
+  const topGenres = useMemo(() => {
+    const score = new Map<string, number>();
+    for (const b of books) {
+      const base = b.rating > 0 ? b.rating : 3;
+      for (const g of b.genres ?? []) {
+        score.set(g, (score.get(g) ?? 0) + base);
+      }
+    }
+    return [...score.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([genre]) => genre);
+  }, [books]);
+
   useEffect(() => {
     if (!hydrated) return;
-    if (topAuthors.length === 0) {
+    if (topAuthors.length === 0 && topGenres.length === 0) {
       setRecs([]);
       return;
     }
@@ -49,6 +63,7 @@ export default function RecommendationsPage() {
           books.map((b) => b.title.trim().toLowerCase())
         );
         const results: RecommendedBook[] = [];
+        const seenKeys = new Set<string>();
 
         for (const author of topAuthors) {
           const works = await searchWorksByAuthor(author, 8);
@@ -56,6 +71,8 @@ export default function RecommendationsPage() {
             (w) => !ownedTitles.has(w.title.trim().toLowerCase())
           );
           for (const w of fresh.slice(0, 3)) {
+            if (seenKeys.has(w.key)) continue;
+            seenKeys.add(w.key);
             results.push({
               key: w.key,
               title: w.title,
@@ -64,6 +81,29 @@ export default function RecommendationsPage() {
               reason: `Because you enjoy ${author}`,
               workUrl: w.workUrl,
               buyUrl: amazonSearchUrl(w.title, author),
+              readable: w.readable,
+            });
+          }
+        }
+
+        for (const genre of topGenres) {
+          const works = await searchWorksByGenre(genre, 8);
+          const fresh = works.filter(
+            (w) => !ownedTitles.has(w.title.trim().toLowerCase())
+          );
+          for (const w of fresh.slice(0, 3)) {
+            if (seenKeys.has(w.key)) continue;
+            seenKeys.add(w.key);
+            const author = (w as unknown as { author?: string }).author ?? "";
+            results.push({
+              key: w.key,
+              title: w.title,
+              author,
+              coverUrl: w.coverUrl,
+              reason: `Popular in ${genre}`,
+              workUrl: w.workUrl,
+              buyUrl: amazonSearchUrl(w.title, author),
+              readable: w.readable,
             });
           }
         }
@@ -83,7 +123,7 @@ export default function RecommendationsPage() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, topAuthors, books]);
+  }, [hydrated, topAuthors, topGenres, books]);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
@@ -93,7 +133,7 @@ export default function RecommendationsPage() {
           Discover
         </h1>
         <p className="text-[hsl(var(--forest-light))] mt-1 font-body">
-          Fresh picks pulled from Open Library, based on the authors already on your shelf.
+          Fresh picks pulled from Open Library, based on the authors and genres already on your shelf.
         </p>
       </div>
 
@@ -109,7 +149,7 @@ export default function RecommendationsPage() {
           <Loader2 className="h-6 w-6 animate-spin mr-2" />
           Finding books you might love...
         </div>
-      ) : topAuthors.length === 0 ? (
+      ) : topAuthors.length === 0 && topGenres.length === 0 ? (
         <div className="text-center py-20 rounded-xl border border-dashed border-[hsl(var(--forest)/0.3)]">
           <BookOpen className="h-8 w-8 mx-auto text-[hsl(var(--forest)/0.4)] mb-3" />
           <p className="font-display text-xl text-[hsl(var(--forest))]">
@@ -125,7 +165,7 @@ export default function RecommendationsPage() {
             No new recommendations right now
           </p>
           <p className="text-sm text-[hsl(var(--forest-light))] mt-1">
-            Looks like you already own the top picks from your favorite authors.
+            Looks like you already own the top picks from your favorite authors and genres.
           </p>
         </div>
       ) : (
