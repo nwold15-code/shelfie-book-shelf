@@ -18,4 +18,5 @@ export interface RecommendedBook {
   coverUrl: string | null;
   reason: string;
   workUrl: string;
+  buyUrl: string;
 }

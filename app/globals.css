@@ -11,6 +11,34 @@
   --burgundy: 350 45% 32%;
   --burgundy-light: 350 40% 45%;
   --gold: 38 55% 55%;
+
+  /* shadcn/ui tokens, tuned to match the parchment/forest/burgundy theme.
+     These MUST be defined or bg-popover, bg-background, etc. render transparent. */
+  --background: 42 38% 93%;
+  --foreground: 150 25% 12%;
+  --card: 40 35% 97%;
+  --card-foreground: 150 25% 12%;
+  --popover: 40 30% 98%;
+  --popover-foreground: 150 25% 12%;
+  --primary: 152 35% 18%;
+  --primary-foreground: 42 38% 96%;
+  --secondary: 40 25% 90%;
+  --secondary-foreground: 150 25% 12%;
+  --muted: 40 20% 88%;
+  --muted-foreground: 152 15% 35%;
+  --accent: 40 28% 88%;
+  --accent-foreground: 150 25% 12%;
+  --destructive: 350 55% 42%;
+  --destructive-foreground: 42 38% 96%;
+  --border: 152 20% 80%;
+  --input: 152 20% 78%;
+  --ring: 152 35% 18%;
+  --chart-1: 152 35% 40%;
+  --chart-2: 350 45% 45%;
+  --chart-3: 38 55% 55%;
+  --chart-4: 200 35% 45%;
+  --chart-5: 280 25% 45%;
+  --radius: 0.6rem;
 }
 
 body {

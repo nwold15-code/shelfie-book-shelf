@@ -8,6 +8,11 @@ import { RecommendationCard } from "@/components/recommendation-card";
 import { Loader2, Sparkles, BookOpen, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+function amazonSearchUrl(title: string, author: string): string {
+  const query = `${title} ${author}`.trim();
+  return `https://www.amazon.com/s?k=${encodeURIComponent(query)}&i=stripbooks`;
+}
+
 export default function RecommendationsPage() {
   const { books, hydrated } = useBooks();
   const [recs, setRecs] = useState<RecommendedBook[]>([]);
@@ -58,6 +63,7 @@ export default function RecommendationsPage() {
               coverUrl: w.coverUrl,
               reason: `Because you enjoy ${author}`,
               workUrl: w.workUrl,
+              buyUrl: amazonSearchUrl(w.title, author),
             });
           }
         }
