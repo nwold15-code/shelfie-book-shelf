@@ -3,21 +3,40 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBooks } from "@/lib/use-books";
 import { searchWorksByAuthor, searchWorksByGenre } from "@/lib/open-library";
-import { RecommendedBook } from "@/types";
+import { Book, RecommendedBook } from "@/types";
 import { RecommendationCard } from "@/components/recommendation-card";
-import { Loader2, Sparkles, BookOpen, AlertCircle } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, AlertCircle, Tag } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 function amazonSearchUrl(title: string, author: string): string {
   const query = `${title} ${author}`.trim();
   return `https://www.amazon.com/s?k=${encodeURIComponent(query)}&i=stripbooks`;
 }
 
+function makeWishlistBook(rec: RecommendedBook): Book {
+  return {
+    id: crypto.randomUUID(),
+    isbn: rec.key || crypto.randomUUID(),
+    title: rec.title,
+    author: rec.author,
+    series: "",
+    seriesIndex: null,
+    coverUrl: rec.coverUrl,
+    read: false,
+    rating: 0,
+    genres: [],
+    collection: "wishlist",
+    addedAt: new Date().toISOString(),
+  };
+}
+
 export default function RecommendationsPage() {
-  const { books, hydrated } = useBooks();
+  const { books, hydrated, addBook } = useBooks();
   const [recs, setRecs] = useState<RecommendedBook[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   const topAuthors = useMemo(() => {
     const score = new Map<string, number>();
@@ -32,7 +51,15 @@ export default function RecommendationsPage() {
       .map(([author]) => author);
   }, [books]);
 
-  const topGenres = useMemo(() => {
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of books) {
+      for (const g of b.genres ?? []) set.add(g);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [books]);
+
+  const autoTopGenres = useMemo(() => {
     const score = new Map<string, number>();
     for (const b of books) {
       const base = b.rating > 0 ? b.rating : 3;
@@ -46,9 +73,17 @@ export default function RecommendationsPage() {
       .map(([genre]) => genre);
   }, [books]);
 
+  const activeGenres = selectedGenres.length > 0 ? selectedGenres : autoTopGenres;
+
+  const toggleGenre = (genre: string) => {
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    );
+  };
+
   useEffect(() => {
     if (!hydrated) return;
-    if (topAuthors.length === 0 && topGenres.length === 0) {
+    if (topAuthors.length === 0 && activeGenres.length === 0) {
       setRecs([]);
       return;
     }
@@ -86,12 +121,12 @@ export default function RecommendationsPage() {
           }
         }
 
-        for (const genre of topGenres) {
+        for (const genre of activeGenres) {
           const works = await searchWorksByGenre(genre, 8);
           const fresh = works.filter(
             (w) => !ownedTitles.has(w.title.trim().toLowerCase())
           );
-          for (const w of fresh.slice(0, 3)) {
+          for (const w of fresh.slice(0, 4)) {
             if (seenKeys.has(w.key)) continue;
             seenKeys.add(w.key);
             const author = (w as unknown as { author?: string }).author ?? "";
@@ -123,7 +158,12 @@ export default function RecommendationsPage() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, topAuthors, topGenres, books]);
+  }, [hydrated, topAuthors, activeGenres, books]);
+
+  const wishlistedKeys = useMemo(
+    () => new Set(books.filter((b) => b.collection === "wishlist").map((b) => b.isbn)),
+    [books]
+  );
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
@@ -137,6 +177,39 @@ export default function RecommendationsPage() {
         </p>
       </div>
 
+      {allGenres.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-[hsl(var(--forest-light))] mr-1">
+            <Tag className="h-3.5 w-3.5" /> Genres:
+          </span>
+          {allGenres.map((genre) => {
+            const active = selectedGenres.includes(genre);
+            return (
+              <button
+                key={genre}
+                onClick={() => toggleGenre(genre)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors border",
+                  active
+                    ? "bg-[hsl(var(--forest))] text-[hsl(var(--parchment))] border-[hsl(var(--forest))]"
+                    : "bg-white/50 text-[hsl(var(--forest))] border-[hsl(var(--forest)/0.25)] hover:bg-white/80"
+                )}
+              >
+                {genre}
+              </button>
+            );
+          })}
+          {selectedGenres.length > 0 && (
+            <button
+              onClick={() => setSelectedGenres([])}
+              className="text-xs text-[hsl(var(--burgundy))] hover:underline"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      )}
+
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -149,7 +222,7 @@ export default function RecommendationsPage() {
           <Loader2 className="h-6 w-6 animate-spin mr-2" />
           Finding books you might love...
         </div>
-      ) : topAuthors.length === 0 && topGenres.length === 0 ? (
+      ) : topAuthors.length === 0 && activeGenres.length === 0 ? (
         <div className="text-center py-20 rounded-xl border border-dashed border-[hsl(var(--forest)/0.3)]">
           <BookOpen className="h-8 w-8 mx-auto text-[hsl(var(--forest)/0.4)] mb-3" />
           <p className="font-display text-xl text-[hsl(var(--forest))]">
@@ -171,7 +244,12 @@ export default function RecommendationsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {recs.map((book) => (
-            <RecommendationCard key={book.key || book.title} book={book} />
+            <RecommendationCard
+              key={book.key || book.title}
+              book={book}
+              added={wishlistedKeys.has(book.key)}
+              onAddToWishlist={(rec) => addBook(makeWishlistBook(rec))}
+            />
           ))}
         </div>
       )}
