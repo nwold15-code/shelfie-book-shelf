@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Trash, BookOpen } from "lucide-react";
-import { Book } from "@/types";
+import { Book, COLLECTION_LABELS } from "@/types";
 import { StarRating } from "@/components/star-rating";
 import { BookCover } from "@/components/book-cover";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,9 @@ interface BookCardProps {
   onRate: (id: string, rating: number) => void;
   onRemove: (id: string) => void;
   onEdit: (book: Book) => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 export function BookCard({
@@ -20,11 +23,28 @@ export function BookCard({
   onRate,
   onRemove,
   onEdit,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
 }: BookCardProps) {
   return (
     <div className="animate-rise group relative flex gap-4 rounded-xl border border-[hsl(var(--forest)/0.15)] bg-white/40 p-3 book-spine-shadow hover:bg-white/60 transition-colors">
+      {selectMode && (
+        <button
+          onClick={() => onToggleSelect?.(book.id)}
+          className={cn(
+            "absolute top-2 left-2 z-10 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
+            selected
+              ? "bg-[hsl(var(--forest))] border-[hsl(var(--forest))]"
+              : "bg-white/80 border-[hsl(var(--forest)/0.4)]"
+          )}
+          aria-label={selected ? "Deselect book" : "Select book"}
+        >
+          {selected && <Check className="h-3 w-3 text-[hsl(var(--parchment))]" />}
+        </button>
+      )}
       <button
-        onClick={() => onEdit(book)}
+        onClick={() => (selectMode ? onToggleSelect?.(book.id) : onEdit(book))}
         className="shrink-0 w-16 h-24 rounded-md overflow-hidden book-spine-shadow"
         aria-label="Edit book details"
       >
@@ -34,7 +54,7 @@ export function BookCard({
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
           <button
-            onClick={() => onEdit(book)}
+            onClick={() => (selectMode ? onToggleSelect?.(book.id) : onEdit(book))}
             className="text-left font-display text-lg font-medium leading-tight text-[hsl(var(--ink))] hover:text-[hsl(var(--burgundy))] transition-colors"
           >
             {book.title}
@@ -48,18 +68,21 @@ export function BookCard({
               {book.seriesIndex != null ? ` · Book ${book.seriesIndex}` : ""}
             </p>
           )}
-          {book.genres && book.genres.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {book.genres.map((genre) => (
-                <span
-                  key={genre}
-                  className="text-[10px] uppercase tracking-wide rounded-full bg-[hsl(var(--forest)/0.1)] text-[hsl(var(--forest))] px-2 py-0.5"
-                >
-                  {genre}
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {book.collection && book.collection !== "owned" && (
+              <span className="text-[10px] uppercase tracking-wide rounded-full bg-[hsl(var(--burgundy)/0.12)] text-[hsl(var(--burgundy))] px-2 py-0.5">
+                {COLLECTION_LABELS[book.collection]}
+              </span>
+            )}
+            {(book.genres ?? []).map((genre) => (
+              <span
+                key={genre}
+                className="text-[10px] uppercase tracking-wide rounded-full bg-[hsl(var(--forest)/0.1)] text-[hsl(var(--forest))] px-2 py-0.5"
+              >
+                {genre}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="flex items-center justify-between mt-2">
           <StarRating value={book.rating} onChange={(v) => onRate(book.id, v)} />

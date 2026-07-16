@@ -11,9 +11,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StarRating } from "@/components/star-rating";
 import { BookCover } from "@/components/book-cover";
-import { Book } from "@/types";
+import { Book, Collection, COLLECTION_LABELS } from "@/types";
 import { Trash } from "lucide-react";
 
 interface BookFormDialogProps {
@@ -36,6 +43,7 @@ function emptyBook(): Book {
     read: false,
     rating: 0,
     genres: [],
+    collection: "owned",
     addedAt: new Date().toISOString(),
   };
 }
@@ -133,21 +141,41 @@ export function BookFormDialog({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="genres">Genres</Label>
-          <Input
-            id="genres"
-            value={genresText}
-            onChange={(e) => {
-              setGenresText(e.target.value);
-              setDraft({ ...draft, genres: textToGenres(e.target.value) });
-            }}
-            placeholder="Fantasy, Adventure"
-          />
-          <p className="text-xs text-[hsl(var(--forest-light))]">
-            Comma-separated. Auto-filled from the catalog when scanning, editable anytime.
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="genres">Genres</Label>
+            <Input
+              id="genres"
+              value={genresText}
+              onChange={(e) => {
+                setGenresText(e.target.value);
+                setDraft({ ...draft, genres: textToGenres(e.target.value) });
+              }}
+              placeholder="Fantasy, Adventure"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="collection">Shelf</Label>
+            <Select
+              value={draft.collection}
+              onValueChange={(v) => setDraft({ ...draft, collection: v as Collection })}
+            >
+              <SelectTrigger id="collection">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(COLLECTION_LABELS) as Collection[]).map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {COLLECTION_LABELS[c]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+        <p className="text-xs text-[hsl(var(--forest-light))] -mt-2">
+          Genres are comma-separated and auto-filled from the catalog when scanning.
+        </p>
 
         <div className="space-y-2">
           <Label htmlFor="isbn">ISBN</Label>
