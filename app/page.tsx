@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useBooks } from "@/lib/use-books";
 import { lookupByIsbn } from "@/lib/open-library";
-import { Book } from "@/types";
+import { Book, Collection, COLLECTION_LABELS } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,13 +25,29 @@ import {
   Loader2,
   AlertCircle,
   BookOpen,
+  CheckSquare,
+  X,
+  Trash,
+  ListChecks,
 } from "lucide-react";
 
 type SortMode = "series" | "author" | "recent" | "rating";
 type FilterMode = "all" | "read" | "unread";
 
+function amazonSearchUrl(query: string): string {
+  return `https://www.amazon.com/s?k=${encodeURIComponent(query)}&i=stripbooks`;
+}
+
 export default function LibraryPage() {
-  const { books, hydrated, addBook, updateBook, removeBook } = useBooks();
+  const {
+    books,
+    hydrated,
+    addBook,
+    updateBook,
+    updateManyBooks,
+    removeBook,
+    removeManyBooks,
+  } = useBooks();
   const [scannerOpen, setScannerOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formInitial, setFormInitial] = useState<Partial<Book> | null>(null);
@@ -41,9 +57,20 @@ export default function LibraryPage() {
   const [sortMode, setSortMode] = useState<SortMode>("series");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
+  const [collectionFilter, setCollectionFilter] = useState<string>("all");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleDetected = useCallback(
     async (isbn: string) => {
+      const existing = books.find((b) => b.isbn === isbn.replace(/[^0-9Xx]/g, "").toUpperCase());
+      if (existing) {
+        setFormInitial(existing);
+        setLookupError(`You already own "${existing.title}" — showing its details.`);
+        setFormOpen(true);
+        return;
+      }
+
       setLookupLoading(true);
       setLookupError(null);
       try {
@@ -77,7 +104,7 @@ export default function LibraryPage() {
         setFormOpen(true);
       }
     },
-    []
+    [books]
   );
 
   const allGenres = useMemo(() => {
@@ -88,12 +115,39 @@ export default function LibraryPage() {
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [books]);
 
+  const seriesGaps = useMemo(() => {
+    const bySeries = new Map<string, number[]>();
+    for (const b of books) {
+      if (!b.series || b.seriesIndex == null) continue;
+      if (b.collection !== "owned") continue;
+      const arr = bySeries.get(b.series) ?? [];
+      arr.push(b.seriesIndex);
+      bySeries.set(b.series, arr);
+    }
+    const gaps: { series: string; missing: number[] }[] = [];
+    for (const [series, indices] of bySeries.entries()) {
+      const sorted = [...new Set(indices)].sort((a, b) => a - b);
+      if (sorted.length < 2) continue;
+      const min = sorted[0];
+      const max = sorted[sorted.length - 1];
+      const missing: number[] = [];
+      for (let n = min; n <= max; n++) {
+        if (!sorted.includes(n)) missing.push(n);
+      }
+      if (missing.length > 0) gaps.push({ series, missing });
+    }
+    return gaps;
+  }, [books]);
+
   const filtered = useMemo(() => {
     let result = books;
     if (filterMode === "read") result = result.filter((b) => b.read);
     if (filterMode === "unread") result = result.filter((b) => !b.read);
     if (genreFilter !== "all") {
       result = result.filter((b) => (b.genres ?? []).includes(genreFilter));
+    }
+    if (collectionFilter !== "all") {
+      result = result.filter((b) => b.collection === collectionFilter);
     }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
@@ -127,7 +181,21 @@ export default function LibraryPage() {
         break;
     }
     return sorted;
-  }, [books, query, sortMode, filterMode, genreFilter]);
+  }, [books, query, sortMode, filterMode, genreFilter, collectionFilter]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
@@ -162,16 +230,82 @@ export default function LibraryPage() {
           >
             <Plus className="h-4 w-4 mr-2" /> Add Manually
           </Button>
+          <Button
+            variant="outline"
+            className="border-[hsl(var(--forest))] text-[hsl(var(--forest))]"
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+          >
+            {selectMode ? (
+              <X className="h-4 w-4 mr-2" />
+            ) : (
+              <CheckSquare className="h-4 w-4 mr-2" />
+            )}
+            {selectMode ? "Cancel" : "Select"}
+          </Button>
         </div>
       </div>
 
       <LibraryStats books={books} />
+
+      {seriesGaps.length > 0 && (
+        <Alert className="border-[hsl(var(--gold))] bg-[hsl(var(--gold)/0.1)]">
+          <ListChecks className="h-4 w-4" />
+          <AlertDescription>
+            <span className="font-medium">Missing from your series: </span>
+            {seriesGaps.map((g, i) => (
+              <span key={g.series}>
+                {i > 0 && "; "}
+                <a
+                  href={amazonSearchUrl(`${g.series} book ${g.missing[0]}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-[hsl(var(--burgundy))]"
+                >
+                  {g.series} #{g.missing.join(", #")}
+                </a>
+              </span>
+            ))}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {lookupError && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{lookupError}</AlertDescription>
         </Alert>
+      )}
+
+      {selectMode && selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[hsl(var(--forest)/0.2)] bg-white/60 p-3">
+          <span className="text-sm font-medium text-[hsl(var(--forest))]">
+            {selectedIds.size} selected
+          </span>
+          <Select
+            onValueChange={(v) => updateManyBooks([...selectedIds], { collection: v as Collection })}
+          >
+            <SelectTrigger className="w-44 bg-white/70">
+              <SelectValue placeholder="Move to shelf..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(COLLECTION_LABELS) as Collection[]).map((c) => (
+                <SelectItem key={c} value={c}>
+                  {COLLECTION_LABELS[c]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            className="border-[hsl(var(--burgundy))] text-[hsl(var(--burgundy))]"
+            onClick={() => {
+              removeManyBooks([...selectedIds]);
+              exitSelectMode();
+            }}
+          >
+            <Trash className="h-4 w-4 mr-2" /> Delete selected
+          </Button>
+        </div>
       )}
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -185,7 +319,7 @@ export default function LibraryPage() {
           />
         </div>
         <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
-          <SelectTrigger className="sm:w-48 bg-white/50">
+          <SelectTrigger className="sm:w-44 bg-white/50">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
@@ -196,7 +330,7 @@ export default function LibraryPage() {
           </SelectContent>
         </Select>
         <Select value={filterMode} onValueChange={(v) => setFilterMode(v as FilterMode)}>
-          <SelectTrigger className="sm:w-40 bg-white/50">
+          <SelectTrigger className="sm:w-36 bg-white/50">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
@@ -206,7 +340,7 @@ export default function LibraryPage() {
           </SelectContent>
         </Select>
         <Select value={genreFilter} onValueChange={setGenreFilter}>
-          <SelectTrigger className="sm:w-44 bg-white/50">
+          <SelectTrigger className="sm:w-40 bg-white/50">
             <SelectValue placeholder="Genre" />
           </SelectTrigger>
           <SelectContent>
@@ -214,6 +348,19 @@ export default function LibraryPage() {
             {allGenres.map((genre) => (
               <SelectItem key={genre} value={genre}>
                 {genre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={collectionFilter} onValueChange={setCollectionFilter}>
+          <SelectTrigger className="sm:w-40 bg-white/50">
+            <SelectValue placeholder="Shelf" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All shelves</SelectItem>
+            {(Object.keys(COLLECTION_LABELS) as Collection[]).map((c) => (
+              <SelectItem key={c} value={c}>
+                {COLLECTION_LABELS[c]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -245,6 +392,9 @@ export default function LibraryPage() {
                 setFormInitial(b);
                 setFormOpen(true);
               }}
+              selectMode={selectMode}
+              selected={selectedIds.has(book.id)}
+              onToggleSelect={toggleSelect}
             />
           ))}
         </div>
