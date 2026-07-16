@@ -2,9 +2,16 @@
 
 import { RecommendedBook } from "@/types";
 import { BookCover } from "@/components/book-cover";
-import { ExternalLink, ShoppingCart, BookOpenCheck } from "lucide-react";
+import { ExternalLink, ShoppingCart, BookOpenCheck, Heart, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export function RecommendationCard({ book }: { book: RecommendedBook }) {
+interface RecommendationCardProps {
+  book: RecommendedBook;
+  onAddToWishlist?: (book: RecommendedBook) => void;
+  added?: boolean;
+}
+
+export function RecommendationCard({ book, onAddToWishlist, added = false }: RecommendationCardProps) {
   return (
     <div className="animate-rise group flex gap-4 rounded-xl border border-[hsl(var(--forest)/0.15)] bg-white/40 p-3 book-spine-shadow hover:bg-white/60 transition-colors">
       <a
@@ -34,24 +41,39 @@ export function RecommendationCard({ book }: { book: RecommendedBook }) {
             )}
           </div>
         </a>
-        <div className="flex items-center justify-end mt-2 gap-2">
-          <a
-            href={book.workUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-[hsl(var(--forest-light))] hover:text-[hsl(var(--forest))] transition-colors"
-            title="View on Open Library"
+        <div className="flex items-center justify-between mt-2 gap-2">
+          <button
+            onClick={() => onAddToWishlist?.(book)}
+            disabled={added}
+            className={cn(
+              "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              added
+                ? "bg-[hsl(var(--forest)/0.12)] text-[hsl(var(--forest))] cursor-default"
+                : "bg-[hsl(var(--forest)/0.08)] text-[hsl(var(--forest))] hover:bg-[hsl(var(--forest)/0.16)]"
+            )}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-          <a
-            href={book.buyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 rounded-full bg-[hsl(var(--burgundy))] text-[hsl(var(--parchment))] px-3 py-1 text-xs font-medium hover:bg-[hsl(var(--burgundy-light))] transition-colors"
-          >
-            <ShoppingCart className="h-3 w-3" /> Buy
-          </a>
+            {added ? <Check className="h-3 w-3" /> : <Heart className="h-3 w-3" />}
+            {added ? "On Wishlist" : "Wishlist"}
+          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={book.workUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-[hsl(var(--forest-light))] hover:text-[hsl(var(--forest))] transition-colors"
+              title="View on Open Library"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href={book.buyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 rounded-full bg-[hsl(var(--burgundy))] text-[hsl(var(--parchment))] px-3 py-1 text-xs font-medium hover:bg-[hsl(var(--burgundy-light))] transition-colors"
+            >
+              <ShoppingCart className="h-3 w-3" /> Buy
+            </a>
+          </div>
         </div>
       </div>
     </div>
