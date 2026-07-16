@@ -6,6 +6,8 @@ export interface LookupResult {
   author: string;
   coverUrl: string | null;
   genres: string[];
+  series: string;
+  seriesIndex: number | null;
 }
 
 function normalizeIsbn(raw: string): string {
@@ -21,15 +23,60 @@ function extractGenres(entry: Record<string, unknown>): string[] {
     .slice(0, 3);
 }
 
+// Tries to pull "Series Name" + "#N" out of a raw series string like
+// "Harry Potter ;bk. 1", "Harry Potter, Book 1", or just "Harry Potter".
+function parseSeriesString(raw: string): { name: string; index: number | null } {
+  const trailingNumber = raw.match(
+    /^(.*?)[,;]?\s*(?:#|bk\.?|book|vol\.?|volume)\s*(\d+)\s*$/i
+  );
+  if (trailingNumber) {
+    return {
+      name: trailingNumber[1].trim().replace(/[,;]+$/, ""),
+      index: Number(trailingNumber[2]),
+    };
+  }
+  return { name: raw.trim(), index: null };
+}
+
+// Tries to pull series info out of a title like:
+// "The Fellowship of the Ring (The Lord of the Rings, #1)"
+// "The Fellowship of the Ring (The Lord of the Rings Book 1)"
+function parseSeriesFromTitle(
+  title: string
+): { name: string; index: number | null } | null {
+  const match = title.match(
+    /\(([^()]+?)[,]?\s*(?:#|book\s+|vol(?:ume)?\.?\s+)(\d+)\)\s*$/i
+  );
+  if (!match) return null;
+  return { name: match[1].trim(), index: Number(match[2]) };
+}
+
+async function fetchEditionSeries(isbn: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const series = data.series as string[] | undefined;
+    if (series && series.length > 0) return series[0];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function lookupByIsbn(rawIsbn: string): Promise<LookupResult | null> {
   const isbn = normalizeIsbn(rawIsbn);
   if (!isbn) return null;
 
-  const res = await fetch(
-    `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
-  );
-  if (!res.ok) throw new Error("Lookup request failed");
-  const data = await res.json();
+  const [dataRes, editionSeriesRaw] = await Promise.all([
+    fetch(
+      `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+    ),
+    fetchEditionSeries(isbn),
+  ]);
+
+  if (!dataRes.ok) throw new Error("Lookup request failed");
+  const data = await dataRes.json();
   const entry = data[`ISBN:${isbn}`];
   if (!entry) return null;
 
@@ -39,7 +86,15 @@ export async function lookupByIsbn(rawIsbn: string): Promise<LookupResult | null
     entry.cover?.medium ?? entry.cover?.large ?? entry.cover?.small ?? null;
   const genres = extractGenres(entry);
 
-  return { isbn, title, author, coverUrl, genres };
+  // Prefer series info parsed from the title (usually includes both name and
+  // number), then fall back to the edition record's raw series field.
+  const fromTitle = parseSeriesFromTitle(title);
+  const fromEdition = editionSeriesRaw ? parseSeriesString(editionSeriesRaw) : null;
+
+  const series = fromTitle?.name ?? fromEdition?.name ?? "";
+  const seriesIndex = fromTitle?.index ?? fromEdition?.index ?? null;
+
+  return { isbn, title, author, coverUrl, genres, series, seriesIndex };
 }
 
 export interface AuthorWork {
