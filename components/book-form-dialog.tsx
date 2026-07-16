@@ -163,7 +163,7 @@ export function BookFormDialog({
             </Button>
           ) : (
             <span />
-          }
+          )}
           <Button
             disabled={!draft.title.trim() || !draft.author.trim()}
             onClick={() => {
