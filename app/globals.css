@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --parchment: 42 38% 93%;
+  --parchment-dim: 40 30% 88%;
+  --ink: 150 25% 12%;
+  --forest: 152 35% 18%;
+  --forest-light: 152 25% 30%;
+  --burgundy: 350 45% 32%;
+  --burgundy-light: 350 40% 45%;
+  --gold: 38 55% 55%;
+}
+
+body {
+  background-color: hsl(var(--parchment));
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(124, 45, 58, 0.06), transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(31, 61, 46, 0.08), transparent 45%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(31, 61, 46, 0.02),
+      rgba(31, 61, 46, 0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  color: hsl(var(--ink));
+}
+
+::selection {
+  background-color: hsl(var(--gold) / 0.4);
+}
+
+.font-display {
+  font-family: var(--font-fraunces), serif;
+}
+
+.font-body {
+  font-family: var(--font-newsreader), serif;
+}
+
+.shelf-divider {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--forest) / 0.35) 15%,
+    hsl(var(--forest) / 0.35) 85%,
+    transparent
+  );
+  height: 3px;
+}
+
+.book-spine-shadow {
+  box-shadow: 0 10px 25px -8px rgba(31, 26, 15, 0.35), 0 2px 6px rgba(31, 26, 15, 0.15);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
