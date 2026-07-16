@@ -5,10 +5,20 @@ export interface LookupResult {
   title: string;
   author: string;
   coverUrl: string | null;
+  genres: string[];
 }
 
 function normalizeIsbn(raw: string): string {
   return raw.replace(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+function extractGenres(entry: Record<string, unknown>): string[] {
+  const subjects = entry.subjects as Array<{ name?: string }> | undefined;
+  if (!subjects || !Array.isArray(subjects)) return [];
+  return subjects
+    .map((s) => s?.name)
+    .filter((name): name is string => Boolean(name))
+    .slice(0, 3);
 }
 
 export async function lookupByIsbn(rawIsbn: string): Promise<LookupResult | null> {
@@ -27,8 +37,9 @@ export async function lookupByIsbn(rawIsbn: string): Promise<LookupResult | null
   const author: string = entry.authors?.[0]?.name ?? "Unknown Author";
   const coverUrl: string | null =
     entry.cover?.medium ?? entry.cover?.large ?? entry.cover?.small ?? null;
+  const genres = extractGenres(entry);
 
-  return { isbn, title, author, coverUrl };
+  return { isbn, title, author, coverUrl, genres };
 }
 
 export interface AuthorWork {
@@ -59,7 +70,7 @@ export async function searchWorksByAuthor(
       coverUrl: coverId
         ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
         : null,
-      workUrl: `https://openlibrary.org$:{key}`,
+      workUrl: `https://openlibrary.org${key}`,
     };
   });
 }

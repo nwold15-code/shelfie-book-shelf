@@ -40,6 +40,7 @@ export default function LibraryPage() {
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("series");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [genreFilter, setGenreFilter] = useState<string>("all");
 
   const handleDetected = useCallback(
     async (isbn: string) => {
@@ -58,6 +59,7 @@ export default function LibraryPage() {
             title: result.title,
             author: result.author,
             coverUrl: result.coverUrl,
+            genres: result.genres,
           });
         }
       } catch {
@@ -71,10 +73,21 @@ export default function LibraryPage() {
     []
   );
 
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of books) {
+      for (const g of b.genres ?? []) set.add(g);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [books]);
+
   const filtered = useMemo(() => {
     let result = books;
     if (filterMode === "read") result = result.filter((b) => b.read);
     if (filterMode === "unread") result = result.filter((b) => !b.read);
+    if (genreFilter !== "all") {
+      result = result.filter((b) => (b.genres ?? []).includes(genreFilter));
+    }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       result = result.filter(
@@ -107,7 +120,7 @@ export default function LibraryPage() {
         break;
     }
     return sorted;
-  }, [books, query, sortMode, filterMode]);
+  }, [books, query, sortMode, filterMode, genreFilter]);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
@@ -183,6 +196,19 @@ export default function LibraryPage() {
             <SelectItem value="all">All books</SelectItem>
             <SelectItem value="read">Read</SelectItem>
             <SelectItem value="unread">To read</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={genreFilter} onValueChange={setGenreFilter}>
+          <SelectTrigger className="sm:w-44 bg-white/50">
+            <SelectValue placeholder="Genre" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All genres</SelectItem>
+            {allGenres.map((genre) => (
+              <SelectItem key={genre} value={genre}>
+                {genre}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

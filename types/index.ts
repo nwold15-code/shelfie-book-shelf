@@ -8,6 +8,7 @@ export interface Book {
   coverUrl: string | null;
   read: boolean;
   rating: number; // 0-5
+  genres: string[];
   addedAt: string;
 }
 

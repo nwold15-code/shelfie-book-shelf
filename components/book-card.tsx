@@ -48,6 +48,18 @@ export function BookCard({
               {book.seriesIndex != null ? ` · Book ${book.seriesIndex}` : ""}
             </p>
           )}
+          {book.genres && book.genres.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {book.genres.map((genre) => (
+                <span
+                  key={genre}
+                  className="text-[10px] uppercase tracking-wide rounded-full bg-[hsl(var(--forest)/0.1)] text-[hsl(var(--forest))] px-2 py-0.5"
+                >
+                  {genre}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between mt-2">
           <StarRating value={book.rating} onChange={(v) => onRate(book.id, v)} />

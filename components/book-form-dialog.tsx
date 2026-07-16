@@ -35,8 +35,20 @@ function emptyBook(): Book {
     coverUrl: null,
     read: false,
     rating: 0,
+    genres: [],
     addedAt: new Date().toISOString(),
   };
+}
+
+function genresToText(genres: string[] | undefined): string {
+  return (genres ?? []).join(", ");
+}
+
+function textToGenres(text: string): string[] {
+  return text
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
 }
 
 export function BookFormDialog({
@@ -47,10 +59,13 @@ export function BookFormDialog({
   onDelete,
 }: BookFormDialogProps) {
   const [draft, setDraft] = useState<Book>(emptyBook());
+  const [genresText, setGenresText] = useState("");
 
   useEffect(() => {
     if (open) {
-      setDraft({ ...emptyBook(), ...initial });
+      const merged = { ...emptyBook(), ...initial };
+      setDraft(merged);
+      setGenresText(genresToText(merged.genres));
     }
   }, [open, initial]);
 
@@ -119,6 +134,22 @@ export function BookFormDialog({
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="genres">Genres</Label>
+          <Input
+            id="genres"
+            value={genresText}
+            onChange={(e) => {
+              setGenresText(e.target.value);
+              setDraft({ ...draft, genres: textToGenres(e.target.value) });
+            }}
+            placeholder="Fantasy, Adventure"
+          />
+          <p className="text-xs text-[hsl(var(--forest-light))]">
+            Comma-separated. Auto-filled from the catalog when scanning, editable anytime.
+          </p>
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="isbn">ISBN</Label>
           <Input
             id="isbn"
@@ -170,6 +201,7 @@ export function BookFormDialog({
               onSave({
                 ...draft,
                 isbn: draft.isbn || crypto.randomUUID(),
+                genres: textToGenres(genresText),
               });
               onOpenChange(false);
             }}
